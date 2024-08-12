@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import {
   Listbox,
   ListboxButton,
@@ -35,7 +35,6 @@ type SelectDropDownProps = {
   searchClassName?: string;
   searchPlaceholder?: string;
   showOptionIcon?: boolean;
-  allowCustom?: boolean;
 };
 
 function SelectDropDown({
@@ -59,14 +58,8 @@ function SelectDropDown({
   searchClassName,
   searchPlaceholder,
   showOptionIcon,
-  allowCustom = false,
 }: SelectDropDownProps) {
   const localize = useLocalize();
-  const [isOpen, setIsOpen] = useState(false);
-  const [customValue, setCustomValue] = useState('');
-  const [activeOptionIndex, setActiveOptionIndex] = useState<number | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
   const transitionProps = { className: 'top-full mt-3' };
   if (showAbove) {
     transitionProps.className = 'bottom-full mb-3';
@@ -92,73 +85,10 @@ function SelectDropDown({
   const hasSearchRender = Boolean(searchRender);
   const options = hasSearchRender ? filteredValues : availableValues;
 
-  useEffect(() => {
-    if (isOpen && allowCustom && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isOpen, allowCustom]);
-
-  useEffect(() => {
-    // Initialize customValue with the current value if it's not in availableValues
-    if (allowCustom && typeof value === 'string' && !availableValues.includes(value)) {
-      setCustomValue(value);
-    }
-  }, [value, availableValues, allowCustom]);
-
-  const getCustomOptionIndex = () => {
-    return allOptions.findIndex(
-      (option) => (typeof option === 'string' ? option : option.value) === customValue,
-    );
-  };
-
-  const handleCustomInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    setCustomValue(newValue);
-    setValue(newValue);
-    const customIndex = getCustomOptionIndex();
-    setActiveOptionIndex(customIndex);
-  };
-
-  const getDisplayValue = () => {
-    if (typeof value === 'string') {
-      return value;
-    } else if (value && 'label' in value) {
-      return value.label;
-    }
-    return '';
-  };
-
-  const handleChange = (newValue: string | Option) => {
-    if (typeof newValue === 'string') {
-      setValue(newValue);
-      if (allowCustom && !availableValues.includes(newValue)) {
-        setCustomValue(newValue);
-      }
-    } else {
-      setValue(newValue.value);
-    }
-    setIsOpen(false);
-  };
-
-  const handleOptionMouseEnter = (index: number) => {
-    setActiveOptionIndex(index);
-  };
-
-  const handleOptionMouseLeave = () => {
-    setActiveOptionIndex(null);
-  };
-
-  const allOptions = [
-    ...availableValues,
-    ...(customValue && !availableValues.includes(customValue)
-      ? [{ value: customValue, label: customValue }]
-      : []),
-  ];
-
   return (
     <div className={cn('flex items-center justify-center gap-2 ', containerClassName ?? '')}>
       <div className={cn('relative w-full', subContainerClassName ?? '')}>
-        <Listbox value={value} onChange={handleChange} disabled={disabled}>
+        <Listbox value={value} onChange={setValue} disabled={disabled}>
           {({ open }) => (
             <>
               <ListboxButton
@@ -167,12 +97,11 @@ function SelectDropDown({
                   'relative flex w-full cursor-default flex-col rounded-md border border-black/10 bg-white py-2 pl-3 pr-10 text-left dark:border-gray-600 dark:bg-gray-700 sm:text-sm',
                   className ?? '',
                 )}
-                onClick={() => setIsOpen(!open)}
               >
                 {' '}
                 {showLabel && (
                   <Label
-                    className="block text-xs text-gray-700 dark:text-gray-500"
+                    className="block text-xs text-gray-700 dark:text-gray-500 "
                     id="headlessui-listbox-label-:r1:"
                     data-headlessui-state=""
                   >
@@ -195,7 +124,7 @@ function SelectDropDown({
                         {(value as OptionWithIcon).icon}
                       </span>
                     )}
-                    {getDisplayValue()}
+                    {typeof value !== 'string' && value ? value.label ?? '' : value ?? ''}
                   </span>
                 </span>
                 <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
@@ -223,8 +152,6 @@ function SelectDropDown({
                 leaveFrom="opacity-100"
                 leaveTo="opacity-0"
                 {...transitionProps}
-                afterEnter={() => setIsOpen(true)}
-                afterLeave={() => setIsOpen(false)}
               >
                 <ListboxOptions
                   className={cn(
@@ -245,19 +172,7 @@ function SelectDropDown({
                     </ListboxOption>
                   )}
                   {searchRender}
-                  {allowCustom && (
-                    <div className="p-2">
-                      <input
-                        ref={inputRef}
-                        type="text"
-                        value={customValue}
-                        onChange={handleCustomInput}
-                        className="w-full rounded border border-gray-300 p-2 text-sm dark:border-gray-600 dark:bg-gray-800"
-                        placeholder="Enter custom value"
-                      />
-                    </div>
-                  )}
-                  {allOptions.map((option: string | Option, i: number) => {
+                  {options.map((option: string | Option, i: number) => {
                     if (!option) {
                       return null;
                     }
@@ -267,8 +182,8 @@ function SelectDropDown({
                     const currentIcon =
                       typeof option === 'string' ? null : (option.icon as React.ReactNode) ?? null;
                     let activeValue: string | number | null | Option = value;
-                    if (typeof activeValue !== 'string' && activeValue !== null) {
-                      activeValue = activeValue.value ?? '';
+                    if (typeof activeValue !== 'string') {
+                      activeValue = activeValue?.value ?? '';
                     }
 
                     return (
@@ -278,13 +193,10 @@ function SelectDropDown({
                         className={({ active }) =>
                           cn(
                             'group relative flex h-[42px] cursor-pointer select-none items-center overflow-hidden border-b border-black/10 pl-3 pr-9 text-gray-800 last:border-0 hover:bg-gray-20 dark:border-white/20 dark:text-white dark:hover:bg-gray-700',
-                            i === activeOptionIndex ? 'bg-surface-tertiary' : '',
-                            active ? 'font-semibold' : '',
+                            active ? 'bg-surface-tertiary' : '',
                             optionsClass ?? '',
                           )
                         }
-                        onMouseEnter={() => handleOptionMouseEnter(i)}
-                        onMouseLeave={handleOptionMouseLeave}
                       >
                         <span className="flex items-center gap-1.5 truncate">
                           <span
