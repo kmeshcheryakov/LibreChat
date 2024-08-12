@@ -37,6 +37,7 @@ type SelectDropDownProps = {
   showOptionIcon?: boolean;
   allowCustom?: boolean;
 };
+
 function SelectDropDown({
   title: _title,
   value,
@@ -63,6 +64,7 @@ function SelectDropDown({
   const localize = useLocalize();
   const [isOpen, setIsOpen] = useState(false);
   const [customValue, setCustomValue] = useState('');
+  const [activeOptionIndex, setActiveOptionIndex] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const transitionProps = { className: 'top-full mt-3' };
@@ -103,10 +105,18 @@ function SelectDropDown({
     }
   }, [value, availableValues, allowCustom]);
 
+  const getCustomOptionIndex = () => {
+    return allOptions.findIndex(
+      (option) => (typeof option === 'string' ? option : option.value) === customValue,
+    );
+  };
+
   const handleCustomInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setCustomValue(newValue);
     setValue(newValue);
+    const customIndex = getCustomOptionIndex();
+    setActiveOptionIndex(customIndex);
   };
 
   const getDisplayValue = () => {
@@ -121,17 +131,29 @@ function SelectDropDown({
   const handleChange = (newValue: string | Option) => {
     if (typeof newValue === 'string') {
       setValue(newValue);
-      if (allowCustom) {
+      if (allowCustom && !availableValues.includes(newValue)) {
         setCustomValue(newValue);
       }
     } else {
       setValue(newValue.value);
-      if (allowCustom) {
-        setCustomValue('');
-      }
     }
     setIsOpen(false);
   };
+
+  const handleOptionMouseEnter = (index: number) => {
+    setActiveOptionIndex(index);
+  };
+
+  const handleOptionMouseLeave = () => {
+    setActiveOptionIndex(null);
+  };
+
+  const allOptions = [
+    ...availableValues,
+    ...(customValue && !availableValues.includes(customValue)
+      ? [{ value: customValue, label: customValue }]
+      : []),
+  ];
 
   return (
     <div className={cn('flex items-center justify-center gap-2 ', containerClassName ?? '')}>
@@ -145,7 +167,7 @@ function SelectDropDown({
                   'relative flex w-full cursor-default flex-col rounded-md border border-black/10 bg-white py-2 pl-3 pr-10 text-left dark:border-gray-600 dark:bg-gray-700 sm:text-sm',
                   className ?? '',
                 )}
-                onClick={() => setIsOpen(!isOpen)}
+                onClick={() => setIsOpen(!open)}
               >
                 {' '}
                 {showLabel && (
@@ -235,7 +257,7 @@ function SelectDropDown({
                       />
                     </div>
                   )}
-                  {options.map((option: string | Option, i: number) => {
+                  {allOptions.map((option: string | Option, i: number) => {
                     if (!option) {
                       return null;
                     }
@@ -256,10 +278,13 @@ function SelectDropDown({
                         className={({ active }) =>
                           cn(
                             'group relative flex h-[42px] cursor-pointer select-none items-center overflow-hidden border-b border-black/10 pl-3 pr-9 text-gray-800 last:border-0 hover:bg-gray-20 dark:border-white/20 dark:text-white dark:hover:bg-gray-700',
-                            active ? 'bg-surface-tertiary' : '',
+                            i === activeOptionIndex ? 'bg-surface-tertiary' : '',
+                            active ? 'font-semibold' : '',
                             optionsClass ?? '',
                           )
                         }
+                        onMouseEnter={() => handleOptionMouseEnter(i)}
+                        onMouseLeave={handleOptionMouseLeave}
                       >
                         <span className="flex items-center gap-1.5 truncate">
                           <span
