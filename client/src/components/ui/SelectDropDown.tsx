@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Listbox,
   ListboxButton,
@@ -35,8 +35,8 @@ type SelectDropDownProps = {
   searchClassName?: string;
   searchPlaceholder?: string;
   showOptionIcon?: boolean;
+  allowCustom?: boolean;
 };
-
 function SelectDropDown({
   title: _title,
   value,
@@ -58,8 +58,13 @@ function SelectDropDown({
   searchClassName,
   searchPlaceholder,
   showOptionIcon,
+  allowCustom = false,
 }: SelectDropDownProps) {
   const localize = useLocalize();
+  const [isOpen, setIsOpen] = useState(false);
+  const [customValue, setCustomValue] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const transitionProps = { className: 'top-full mt-3' };
   if (showAbove) {
     transitionProps.className = 'bottom-full mb-3';
@@ -79,16 +84,59 @@ function SelectDropDown({
   const [filteredValues, searchRender] = useMultiSearch<string[] | Option[]>({
     availableOptions: availableValues,
     placeholder: searchPlaceholder,
-    getTextKeyOverride: (option) => ((option as Option)?.label || '').toUpperCase(),
+    getTextKeyOverride: (option) => ((option as Option).label || '').toUpperCase(),
     className: searchClassName,
   });
   const hasSearchRender = Boolean(searchRender);
   const options = hasSearchRender ? filteredValues : availableValues;
 
+  useEffect(() => {
+    if (isOpen && allowCustom && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isOpen, allowCustom]);
+
+  useEffect(() => {
+    // Initialize customValue with the current value if it's not in availableValues
+    if (allowCustom && typeof value === 'string' && !availableValues.includes(value)) {
+      setCustomValue(value);
+    }
+  }, [value, availableValues, allowCustom]);
+
+  const handleCustomInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setCustomValue(newValue);
+    setValue(newValue);
+  };
+
+  const getDisplayValue = () => {
+    if (typeof value === 'string') {
+      return value;
+    } else if (value && 'label' in value) {
+      return value.label;
+    }
+    return '';
+  };
+
+  const handleChange = (newValue: string | Option) => {
+    if (typeof newValue === 'string') {
+      setValue(newValue);
+      if (allowCustom) {
+        setCustomValue(newValue);
+      }
+    } else {
+      setValue(newValue.value);
+      if (allowCustom) {
+        setCustomValue('');
+      }
+    }
+    setIsOpen(false);
+  };
+
   return (
     <div className={cn('flex items-center justify-center gap-2 ', containerClassName ?? '')}>
       <div className={cn('relative w-full', subContainerClassName ?? '')}>
-        <Listbox value={value} onChange={setValue} disabled={disabled}>
+        <Listbox value={value} onChange={handleChange} disabled={disabled}>
           {({ open }) => (
             <>
               <ListboxButton
@@ -97,11 +145,12 @@ function SelectDropDown({
                   'relative flex w-full cursor-default flex-col rounded-md border border-black/10 bg-white py-2 pl-3 pr-10 text-left dark:border-gray-600 dark:bg-gray-700 sm:text-sm',
                   className ?? '',
                 )}
+                onClick={() => setIsOpen(!isOpen)}
               >
                 {' '}
                 {showLabel && (
                   <Label
-                    className="block text-xs text-gray-700 dark:text-gray-500 "
+                    className="block text-xs text-gray-700 dark:text-gray-500"
                     id="headlessui-listbox-label-:r1:"
                     data-headlessui-state=""
                   >
@@ -119,12 +168,12 @@ function SelectDropDown({
                     {!showLabel && !emptyTitle && (
                       <span className="text-xs text-gray-700 dark:text-gray-500">{title}:</span>
                     )}
-                    {showOptionIcon && value && (value as OptionWithIcon)?.icon && (
+                    {showOptionIcon && value && (value as OptionWithIcon).icon && (
                       <span className="icon-md flex items-center">
                         {(value as OptionWithIcon).icon}
                       </span>
                     )}
-                    {typeof value !== 'string' && value ? value?.label ?? '' : value ?? ''}
+                    {getDisplayValue()}
                   </span>
                 </span>
                 <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
@@ -152,6 +201,8 @@ function SelectDropDown({
                 leaveFrom="opacity-100"
                 leaveTo="opacity-0"
                 {...transitionProps}
+                afterEnter={() => setIsOpen(true)}
+                afterLeave={() => setIsOpen(false)}
               >
                 <ListboxOptions
                   className={cn(
@@ -172,18 +223,30 @@ function SelectDropDown({
                     </ListboxOption>
                   )}
                   {searchRender}
+                  {allowCustom && (
+                    <div className="p-2">
+                      <input
+                        ref={inputRef}
+                        type="text"
+                        value={customValue}
+                        onChange={handleCustomInput}
+                        className="w-full rounded border border-gray-300 p-2 text-sm dark:border-gray-600 dark:bg-gray-800"
+                        placeholder="Enter custom value"
+                      />
+                    </div>
+                  )}
                   {options.map((option: string | Option, i: number) => {
                     if (!option) {
                       return null;
                     }
 
-                    const currentLabel = typeof option === 'string' ? option : option?.label ?? '';
-                    const currentValue = typeof option === 'string' ? option : option?.value ?? '';
+                    const currentLabel = typeof option === 'string' ? option : option.label ?? '';
+                    const currentValue = typeof option === 'string' ? option : option.value ?? '';
                     const currentIcon =
-                      typeof option === 'string' ? null : (option?.icon as React.ReactNode) ?? null;
+                      typeof option === 'string' ? null : (option.icon as React.ReactNode) ?? null;
                     let activeValue: string | number | null | Option = value;
-                    if (typeof activeValue !== 'string') {
-                      activeValue = activeValue?.value ?? '';
+                    if (typeof activeValue !== 'string' && activeValue !== null) {
+                      activeValue = activeValue.value ?? '';
                     }
 
                     return (
