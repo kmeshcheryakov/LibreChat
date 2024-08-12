@@ -3,7 +3,7 @@ import { useForm, useFieldArray, Controller, useWatch } from 'react-hook-form';
 import type { TPromptGroup } from 'librechat-data-provider';
 import { extractVariableInfo, wrapVariable, replaceSpecialVars } from '~/utils';
 import { useAuthContext, useLocalize, useSubmitMessage } from '~/hooks';
-import { TextareaAutosize, Input, SelectDropDown } from '~/components/ui';
+import { TextareaAutosize, Input, InputWithDropdown } from '~/components/ui';
 
 type FieldType = 'text' | 'multiline' | 'select';
 
@@ -165,14 +165,12 @@ export default function VariableForm({
                       );
                     case 'select':
                       return (
-                        <SelectDropDown
-                          title={field.config.variable}
-                          value={inputField.value}
-                          setValue={inputField.onChange}
-                          availableValues={field.config.options || []}
-                          showLabel={true}
-                          className="w-full"
-                          allowCustom={true} // Enable custom text entry
+                        <InputWithDropdown
+                          {...inputField}
+                          id={`fields.${index}.value`}
+                          className="w-full rounded border px-3 py-2"
+                          placeholder={`Enter ${field.config.variable}`}
+                          options={field.config.options || []}
                         />
                       );
                     default:
